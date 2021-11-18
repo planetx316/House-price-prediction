@@ -1,0 +1,118 @@
+---
+title: "Predictions with Linear Regression and R"
+author: "Prince John"
+date: "21/12/2020"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Exploration
+
+This is an example of linear regression. I am trying to predict house prices.I first load the data. First let's load the necessary libraries
+
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(lares)
+library(modelr)
+```
+
+
+```{r houseData}
+houseData<-read.csv('train.csv',header = T)
+
+```
+
+At the outset, I am interested in finding which of the variables have a positive association, or a strong positive association with the variable SalePrice. We use a package {\ttfamily lares} and try to find which 
+
+```{r}
+corr_var(houseData, # name of dataset
+  SalePrice, # name of variable to focus on
+  top = 3 # display top 5 correlations
+) 
+```
+
+From the Correlogram, it seems that the OverallQual is most correlated to the SalePrice. However, since the OverallQual is discrete, we will not take that value, but rather the next one, which is GrLivArea.
+
+
+### Visualizing the data
+
+We can visualize the data as follows to see how the data is correlated.
+```{r}
+ggplot(houseData,aes(x=GrLivArea,y=SalePrice))+geom_point()
+```
+### Test and training data
+
+```{r}
+data_sample<-sample(c(TRUE,FALSE),nrow(houseData),replace=T, prob=c(0.6,0.4))
+train<-houseData[data_sample,]
+test<-houseData[!data_sample,]
+```
+
+
+
+## Linear regression
+We are trying to fit our data to $y=a+bx$, where $b$ is the slope of the regression line.
+
+```{r}
+model=lm(SalePrice~GrLivArea,data=train)
+```
+Let us check the residual standard error (RSE) and the $R^2$ value. The RSE is an estimate of the standard deviation of the error of the model (error in our mathematical definition of linear regression). Roughly speaking, it is the average amount that the response will deviate from the true regression line. 
+
+```{r}
+sigma(model)
+summary(model)$r.squared
+```
+Now, its time to calculate the estimate and the residuals. They are as follows.
+
+```{r}
+train$estimate<-predict(model)
+train$residuals<-residuals(model)
+ggplot(train,aes(GrLivArea,SalePrice))+
+  geom_point(aes(size=abs(residuals)))+
+  geom_point(aes(y=estimate),color='blue')+
+  geom_segment(aes(xend=GrLivArea,yend=estimate),color='gray')
+```
+As you can clearly see, probably a linear relationship is not the best relationship. Neveertheless, we will continue with this. Let's look at it closely to see where it deviates from a linear relationship using the LOESS function.
+
+```{r,warning=FALSE}
+ggplot(train,aes(GrLivArea,SalePrice))+geom_point()+
+  geom_smooth(method='lm')+
+  geom_smooth(se=FALSE,color='red')
+```
+Clearly, it deviates from a relationship past GrLivArea value above 3000. 
+
+### Mean SalePrice by OverallQual
+
+
+
+## Assessing the Model Results
+```{r}
+train%>%group_by(OverallQual)%>%summarise(mean_price=mean(SalePrice))%>%ggplot(aes(OverallQual,mean_price))+geom_point()
+```
+
+```{r}
+summary(model)
+
+```
+```{r}
+sprintf("The results show that the intercept is %s and slope is %s. This means that when the GrLivArea is 0, still the SalePrice is %s, which doesn't make much sense. However, the slope means that for every unit increase in GrLivArea, the SalePrice increases by %s.",model$coefficients[1],model$coefficients[2],model$coefficients[1],model$coefficients[2])
+```
+
+The column adjacent to Estimate is called Std. Error; the standard error of each coefficient is the estimate of the standard deviation of the coefficient. The t value and $P(>|t|)$ inherently answer the same question–– given the value of our variable’s regression coefficient and its’ standard error, does the variable explain a significant part of the change in our outcome variable? However, the $P(>|t|)$ column purposely provides a more concise response to this question, using the asterisk notation that corresponds with the Signif. codes legend at the bottom of the Coefficients results section. In R model output, one asterisk means $“p < .05”$. Two asterisks mean $“p < .01”$; and three asterisks mean $“p < .001”$. These values are referred to as p-values in scientific literature. How can we use p-values to answer our question around model significance?
+
+Asterisks in a regression table indicate the level of the statistical significance of a regression coefficient. Our understanding of statistical significance is based off of the idea of a random sample. 
+
+### Making predictions
+
+```{r}
+test %>% 
+  add_predictions(model) %>%
+  ggplot(aes(GrLivArea, SalePrice)) +
+  geom_point() +
+geom_point(aes(y = pred), color = "blue")
+```
+

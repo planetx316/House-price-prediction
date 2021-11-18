@@ -1,0 +1,64 @@
+---
+title: "Variable selection using R"
+author: "Prince John"
+date: "25/12/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading data
+
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(lares)
+library(modelr)
+```
+
+
+```{r houseData}
+diabData<-read.csv('diabetes.csv',header = T)
+
+```
+
+## Full and Base models
+Our full model is
+```{r}
+response=diabData[,dim(diabData)[2]]
+predictorX=diabData[,1:(dim(diabData)[2]-1)]
+fullModel = lm(response~predictorX[,1]+predictorX[,2]
+	+predictorX[,3]+predictorX[,4]+predictorX[,5]
+	+predictorX[,6]+predictorX[,7]+predictorX[,8]) 
+```
+and the base model is 
+
+
+```{r}
+baseModel = lm(response~1)
+```
+
+Let's have a look at the coefficients
+
+```{r}
+fullModel$coefficients
+```
+Now, we are interested in the forward stepwise addition and the backward stepwise deletion to see which variables are good.
+
+## Forward Stepwise addition
+
+```{r}
+step(baseModel,scope=list(upper=fullModel,lower=~1),direction="forward")
+```
+The last part shows the best variables as $X_2,X_6,X_1,X_7,X_3,X_8$
+
+## Backward stepwise deletion
+
+```{r}
+step(fullModel, direction="backward")
+```
+We get the best set of attributes there as well.
+
